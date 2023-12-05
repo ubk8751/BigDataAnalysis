@@ -1,3 +1,5 @@
+Original code copied from: [ https://github.com/mickesv/BigDataAnalytics]( https://github.com/mickesv/BigDataAnalytics). Edits made to code relevant to assignment
+
 # Big Data Analytics
 Work material for parts of a course "Applied Computing and Big Data" offered by Blekinge Institute of Technology.
 
