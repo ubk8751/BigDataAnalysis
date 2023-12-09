@@ -91,18 +91,31 @@ class CloneDetector {
     // Return: file, including file.instances which is an array of Clone objects (or an empty array).
     //
     #filterCloneCandidates(file, compareFile) {
-        // For each chunk in file.chunks, find all #chunkMatch() in compareFile.chunk
-        // For each matching chunk, create a new Clone.
-        // Store the resulting (flat) array in file.instances.
         const newInstances = file.chunks.flatMap(chunk => {
             const matchingChunks = compareFile.chunks.filter(compareChunk => this.#chunkMatch(chunk, compareChunk));
-            return matchingChunks.map(matchingChunk => new Clone(chunk, matchingChunk, file.name, compareFile.name));
+    
+            if (matchingChunks === undefined) {
+                console.log(matchingChunks);
+            }
+    
+            return matchingChunks.map(matchingChunk => {
+                if (matchingChunk !== undefined) { // Check if matchingChunk is defined
+                    //console.log('Creating Clone:', chunk, matchingChunk, file.name, compareFile.name);
+                    const clone = new Clone(chunk, matchingChunk, file.name, compareFile.name);
+                    //console.log('Created Clone:', clone);
+                    return clone;
+                } else {
+                    return null; // Return null if matchingChunk is undefined
+                }
+            });
         });
-        
+    
         file.instances = file.instances || [];
-        file.instances = file.instances.concat(newInstances);
+        file.instances = file.instances.concat(newInstances.filter(clone => clone !== null)); // Filter out null values
         return file;
     }
+    
+    
 
     // TODO
     // For each Clone in file.instances, try to expand it with every other Clone
@@ -227,6 +240,9 @@ class CloneDetector {
         this.#myFileStore.storeFile(this.pruneFile(file));
         return file;
     }
+    expandClones(file) {
+        return this.#expandCloneCandidates(file);
+      }
 
     get numberOfProcessedFiles() { return this.#myFileStore.numberOfFiles; }
 }

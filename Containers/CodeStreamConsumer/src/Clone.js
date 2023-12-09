@@ -3,10 +3,14 @@ class Clone {
     constructor(sourceName, targetName, sourceChunk, targetChunk) {
         this.sourceName = sourceName;
         this.sourceStart = sourceChunk[0].lineNumber;
-        this.sourceEnd = sourceChunk[sourceChunk.length -1].lineNumber;
+        this.sourceEnd = sourceChunk[sourceChunk.length - 1].lineNumber;
         this.sourceChunk = sourceChunk;
 
-        this.targets = [{ name: targetName, startLine: targetChunk[0].lineNumber }];
+        this.targets = [];
+        
+        if (targetChunk) { // Check if targetChunk is defined
+            this.targets.push({ name: targetName, startLine: targetChunk[0].lineNumber });
+        }
     }
 
     equals(clone) {
@@ -16,8 +20,12 @@ class Clone {
     }
 
     addTarget(clone) {
-        this.targets = this.targets.concat(clone.targets);
+        if (clone.sourceChunk) {
+            this.targets.push({ name: clone.sourceName, startLine: clone.sourceChunk[0].lineNumber });
+        }
     }
+    
+
 
     isNext(clone) {
         return (this.sourceChunk[this.sourceChunk.length-1].lineNumber == 

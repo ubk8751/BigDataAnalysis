@@ -23,6 +23,9 @@ echo "files are sent to                   :" $TARGET
 echo "Waiting 5 seconds to give consumer time to get started..."
 sleep 5
 
+#createFileList
+
+
 if [[ "$1" == "TEST" ]]; then
   echo "Started with TEST argument, first sending test files..."
   sendFile ./test/A.java
@@ -31,12 +34,9 @@ if [[ "$1" == "TEST" ]]; then
   sleep 10
 fi
 
-
-createFileList
-
-while read LINE; do
-  sendFile $LINE
-  sleep $DELAY
-done < ~/files.txt
+#Swhile read LINE; do
+#  sendFile $LINE
+#  sleep $DELAY
+#one < ~/files.txt
 
 echo "No more files to send. Exiting."
