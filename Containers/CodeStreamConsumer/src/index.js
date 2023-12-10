@@ -54,6 +54,7 @@ function viewTimers(req, res, next) {
 
 app.get("/", viewClones);
 app.get("/timers", viewTimers);
+app.get("/stats", viewStats);
 
 const server = app.listen(PORT, () => {
   console.log("Listening for files on port", PORT);
@@ -84,46 +85,111 @@ function lastFileTimersHTML() {
   return output;
 }
 
-function listClonesHTML() {
-    let cloneStore = CloneStorage.getInstance();
-    let output = '';
-    let reversedClones = cloneStore.clones.slice().reverse(); // Reversing the order of clones to 
-                                                              // have the latest at the top, easier 
-                                                              // to see that it's actually updating...
+function viewStats(req, res, next) {
+  let page =
+    "<HTML><HEAD><TITLE>CodeStream Clone Detector Statistics</TITLE></HEAD>\n";
+  page += "<BODY><H1>CodeStream Clone Detector Statistics</H1>\n";
 
-    reversedClones.forEach(clone => {
-        output += '<hr>\n';
-        if (Array.isArray(clone.sourceName) && clone.sourceName.length > 0) {
-            const firstSourceLine = clone.sourceName[0].myLineNumber;
-            const lastSourceLine = clone.sourceName[clone.sourceName.length - 1].myLineNumber;
-            output += '<h2>Source File: ' + clone.sourceChunk + '</h2>\n';
-            output += '<p>Starting at line: ' + firstSourceLine + ' , ending at line: ' + lastSourceLine + '</p>\n';
-            output += '<ul>';
-            clone.targets.forEach(target => {
-              if (target && Array.isArray(target.name) && target.name.length > 0) {
-                  const firstTargetLine = target.name[0];
-                  if (firstTargetLine && firstTargetLine.myContent) {
-                      output += '<li>Found in \"' + firstTargetLine.myContent + '\" starting at line ' + firstTargetLine.myLineNumber + '\n';
-                  } else {
-                      output += '<li>Found in unknown location starting at line ' + firstTargetLine.myLineNumber + '\n';
-                  }
-              } else {
-                  output += '<li>Found in unknown location starting at line ' + target + '\n';
-              }
-          });
+  let totalMatchTime = fileTimers.reduce(
+    (sum, fileTimer) => {
+      sum.total += fileTimer.timers.total;
+      sum.match += fileTimer.timers.match;
+      return sum;
+    },
+    { total: 0n, match: 0n }
+  );
 
-            output += '</ul>\n';
-            output += '<h3>Contents:</h3>\n<pre><code>\n';
-            output += clone.originalCode;
-            output += '</code></pre>\n';
-        } else {
-            console.error('Error: sourceName is not an array or is empty in the clone object.');
-        }
-    });
+  let avgTimePerFile = fileTimers.length > 0 ? totalMatchTime.total / BigInt(fileTimers.length) : 0n;
+  let avgTimePerMatch = fileTimers.length > 0 ? totalMatchTime.match / BigInt(fileTimers.length) : 0n;
 
-    return output;
+  page += "<table border='1'><tr><th>Statistic</th><th>Value</th></tr>\n";
+  page += `<tr><td>Total Files Processed</td><td>${fileTimers.length}</td></tr>\n`;
+  page += `<tr><td>Average Total Time Per File (µs)</td><td>${avgTimePerFile / 1000n}</td></tr>\n`;
+  page += `<tr><td>Average Match Time Per File (µs)</td><td>${avgTimePerMatch / 1000n}</td></tr>\n`;
+  page += "</table>\n";
+
+  // Generate the ASCII art distribution graph
+  page += "<h2>Distribution of Total Times</h2>\n";
+  page += generateDistributionGraph(fileTimers, "total");
+
+  page += "<h2>Distribution of Match Times</h2>\n";
+  page += generateDistributionGraph(fileTimers, "match");
+
+  page += "</BODY></HTML>";
+  res.send(page);
 }
 
+function generateDistributionGraph(data, property) {
+  const numBins = 10; // Set the number of main bins as a constant
+  const subBins = 10; // Set the number of sub-bins within the first bin
+  const maxBarLength = 40;
+  const times = data.map((fileTimer) => Number(fileTimer.timers[property]) / 1000000); // Convert to seconds
+
+  let maxTime = 0;
+  for (const time of times) {
+    if (time > maxTime) {
+      maxTime = time;
+    }
+  }
+
+  const binSize = maxTime / numBins;
+  const bins = Array(numBins).fill(0);
+
+  for (const time of times) {
+    const binIndex = Math.floor(time / binSize);
+    if (binIndex === numBins) {
+      bins[numBins - 1] += 1;
+    } else {
+      bins[binIndex] += 1;
+    }
+  }
+
+  let maxBarLengthWidth = maxBarLength;
+  let maxRangeWidth = 0;
+  let maxCountWidth = 0;
+
+  for (let i = 0; i < bins.length; i++) {
+    const binFrequency = bins[i];
+    const binMinValue = i === 0 ? 0 : (i * binSize).toFixed(2);
+    const binMaxValue = i === numBins - 1 ? maxTime.toFixed(2) : ((i + 1) * binSize).toFixed(2);
+    const barLength = Math.ceil((binFrequency / times.length) * maxBarLength);
+
+    const rangeAndCount = `[${binMinValue} - ${binMaxValue} s]`;
+    maxRangeWidth = Math.max(maxRangeWidth, rangeAndCount.length);
+    maxCountWidth = Math.max(maxCountWidth, binFrequency.toString().length);
+  }
+
+  let graph = "";
+
+  for (let i = 0; i < bins.length; i++) {
+    const binFrequency = bins[i];
+    const binMinValue = i === 0 ? 0 : (i * binSize).toFixed(2);
+    const binMaxValue = i === numBins - 1 ? maxTime.toFixed(2) : ((i + 1) * binSize).toFixed(2);
+    const barLength = Math.ceil((binFrequency / times.length) * maxBarLength);
+
+    const binMinValueStr = binMinValue.toString().padEnd(maxRangeWidth - 3);
+    const binMaxValueStr = binMaxValue.toString().padStart(maxRangeWidth - 3);
+    const rangeAndCount = `[${binMinValueStr} - ${binMaxValueStr} s]`;
+    const count = binFrequency.toString().padEnd(maxCountWidth);
+    const bars = `[${"=".repeat(barLength).padEnd(maxBarLengthWidth)}]`;
+
+    graph += `| ${bars} | ${rangeAndCount} | ${count} |\n`;
+  }
+  const subBinSize = binSize / subBins;
+  let subBinsHTML = "<h2>Sub-Bins Within the First Bin</h2>\n";
+  subBinsHTML += "<table border='1'><tr><th>Sub-Bin</th><th>Count</th></tr>\n";
+
+  for (let i = 0; i < subBins; i++) {
+    const subBinMinValue = (i * subBinSize).toFixed(2);
+    const subBinMaxValue = ((i + 1) * subBinSize).toFixed(2);
+    const subBinFrequency = times.filter((time) => time >= subBinMinValue && time < subBinMaxValue).length;
+    subBinsHTML += `<tr><td>${subBinMinValue} - ${subBinMaxValue} s</td><td>${subBinFrequency}</td></tr>\n`;
+  }
+
+  subBinsHTML += "</table>\n";
+
+  return `<pre>${graph}</pre>\n${subBinsHTML}`;
+}
 
 function listProcessedFilesHTML() {
   let fs = FileStorage.getInstance();
@@ -210,7 +276,7 @@ function processFile(filename, contents) {
   let cd = new CloneDetector();
   let cloneStore = CloneStorage.getInstance();
   let file = { name: filename, contents: contents };
-  const fileTimer = { filename, timers: {} };
+  const fileTimer = { filename, timers: { total: 0n, match: 0n } }; // Initialize timers
 
   return Promise.resolve(file)
     .then((file) => {
