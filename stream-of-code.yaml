@@ -8,7 +8,7 @@ version: "3.8"
 services:
   cs-generator:
     image: csgenerator
-    command: "TEST"
+    #command: "TEST"
     volumes:
       - qc-volume:/QualitasCorpus
     environment:
@@ -16,6 +16,8 @@ services:
       TARGET: "cs-consumer:3000"
   cs-consumer:
     image: csconsumer
+    environment:
+      NORMALIZE: "true" # Set normalization flag.
     volumes:
       - ./Containers/CodeStreamConsumer/src:/app/src
     ports:

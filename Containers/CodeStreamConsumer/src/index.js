@@ -86,9 +86,15 @@ function lastFileTimersHTML() {
 }
 
 function viewStats(req, res, next) {
+  const normalize = process.env.NORMALIZE === "true"; // Check the NORMALIZE flag
   let page =
     "<HTML><HEAD><TITLE>CodeStream Clone Detector Statistics</TITLE></HEAD>\n";
   page += "<BODY><H1>CodeStream Clone Detector Statistics</H1>\n";
+
+  if (normalize) {
+    page +=
+      "<p>Normalize flag is activated. All times are now per line of code.</p>";
+  }
 
   let totalMatchTime = fileTimers.reduce(
     (sum, fileTimer) => {
@@ -99,13 +105,25 @@ function viewStats(req, res, next) {
     { total: 0n, match: 0n }
   );
 
-  let avgTimePerFile = fileTimers.length > 0 ? totalMatchTime.total / BigInt(fileTimers.length) : 0n;
-  let avgTimePerMatch = fileTimers.length > 0 ? totalMatchTime.match / BigInt(fileTimers.length) : 0n;
+  let avgTimePerFile =
+    fileTimers.length > 0
+      ? totalMatchTime.total / BigInt(fileTimers.length)
+      : 0n;
+  let avgTimePerMatch =
+    fileTimers.length > 0
+      ? totalMatchTime.match / BigInt(fileTimers.length)
+      : 0n;
 
   page += "<table border='1'><tr><th>Statistic</th><th>Value</th></tr>\n";
   page += `<tr><td>Total Files Processed</td><td>${fileTimers.length}</td></tr>\n`;
-  page += `<tr><td>Average Total Time Per File (µs)</td><td>${avgTimePerFile / 1000n}</td></tr>\n`;
-  page += `<tr><td>Average Match Time Per File (µs)</td><td>${avgTimePerMatch / 1000n}</td></tr>\n`;
+
+  page += `<tr><td>Average Total Time Per ${
+    normalize ? "line" : "file"
+  } (µs)</td><td>${avgTimePerFile}</td></tr>\n`;
+  page += `<tr><td>Average Match Time Per ${
+    normalize ? "line" : "file"
+  } (µs)</td><td>${avgTimePerMatch}</td></tr>\n`;
+
   page += "</table>\n";
 
   // Generate the ASCII art distribution graph
@@ -115,15 +133,100 @@ function viewStats(req, res, next) {
   page += "<h2>Distribution of Match Times</h2>\n";
   page += generateDistributionGraph(fileTimers, "match");
 
+  page += "<h2>Graph: Average Total Time vs. Number of Files Processed</h2>\n";
+  page +=
+    '<canvas id="lineGraph" style="width: 800px; height: 400px;"></canvas>\n';
+  page += '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>\n';
+  page += "<script>\n";
+  page += 'var ctx = document.getElementById("lineGraph").getContext("2d");\n';
+  page += "var data = {\n";
+  page += "  labels: [" + fileTimers.map((_, index) => index + 1) + "],\n";
+  page += "  datasets: [{\n";
+  page += '    label: "Average Total Time (ms)",\n';
+  page += '    borderColor: "rgba(75, 192, 192, 1)",\n'; // Line color
+  page += "    borderWidth: 2,\n";
+  page += "    pointRadius: 0,\n";
+  page +=
+    "    data: [" +
+    fileTimers.map((timer) => Number(timer.timers.total) / 1000) +
+    "],\n";
+  page += '    pointStyle: "line",\n';
+  page += '    pointBackgroundColor: "rgba(0, 0, 0, 0)",\n';
+  page += "  }]\n";
+  page += "};\n";
+  page += "var myLineChart = new Chart(ctx, {\n";
+  page += '  type: "line",\n';
+  page += "  data: data,\n";
+  page += "  options: {\n";
+  page +=
+    "    responsive: false, // Disable responsiveness to fix chart size\n";
+  page += "    scales: {\n";
+  page += "      x: {\n";
+  page += '        type: "linear",\n';
+  page += '        position: "bottom",\n';
+  page += "        title: {\n";
+  page += "          display: true,\n";
+  page += '          text: "Number of Files Processed"\n';
+  page += "        }\n";
+  page += "      },\n";
+  page += "      y: {\n";
+  page += "        beginAtZero: true,\n";
+  page += "        title: {\n";
+  page += "          display: true,\n";
+  page += `          text: "${
+    normalize ? "Normalized a" : "A"
+  }verage Total Time (ms)"\n`;
+  page += "        }\n";
+  page += "      }\n";
+  page += "    },\n";
+  page += "    plugins: {\n";
+  page += "      legend: {\n";
+  page += "        display: false // Hide legend\n";
+  page += "      }\n";
+  page += "    },\n";
+  page += "    elements: {\n";
+  page += "      line: {\n";
+  page += "        tension: 0, // Disable bezier curves\n";
+  page += "      }\n";
+  page += "    }\n";
+  page += "  }\n";
+  page += "});\n";
+  page += "</script>\n";
+
   page += "</BODY></HTML>";
   res.send(page);
 }
 
+// Function to generate the condensed vertical line graph
+// Function to generate the condensed line graph for average total time
+function generateAverageTotalTimeGraph(data) {
+  const maxGraphWidth = 40;
+  const maxAverageTime = Math.max(
+    ...data.map((timer) => Number(timer.timers.total) / 1000)
+  ); // Convert to milliseconds
+  const step = maxAverageTime / maxGraphWidth;
+  const numPoints = data.length < maxGraphWidth ? data.length : maxGraphWidth;
+
+  let graph = "";
+
+  for (let i = 0; i < numPoints; i++) {
+    const averageTotalTime = Number(data[i].timers.total) / 1000; // Convert to milliseconds
+    const numFilesProcessed = i + 1;
+    const barLength = Math.ceil(averageTotalTime / step);
+    const progressBar = "=".repeat(barLength).padEnd(maxGraphWidth);
+    graph += `${numFilesProcessed}: ${progressBar}\n`;
+  }
+
+  return `<pre>${graph}</pre>\n`;
+}
+
 function generateDistributionGraph(data, property) {
-  const numBins = 10; // Set the number of main bins as a constant
-  const subBins = 10; // Set the number of sub-bins within the first bin
+  const numBins = 10;
+  const subBins = 10;
   const maxBarLength = 40;
-  const times = data.map((fileTimer) => Number(fileTimer.timers[property]) / 1000000); // Convert to seconds
+  const times = data.map(
+    (fileTimer) => Number(fileTimer.timers[property]) / 1000000
+  ); // Convert to seconds
 
   let maxTime = 0;
   for (const time of times) {
@@ -144,51 +247,118 @@ function generateDistributionGraph(data, property) {
     }
   }
 
-  let maxBarLengthWidth = maxBarLength;
-  let maxRangeWidth = 0;
-  let maxCountWidth = 0;
+  const binMinValues = [];
+  const binMaxValues = [];
+
+  for (let i = 0; i < bins.length; i++) {
+    const binMinValue = (i * binSize).toFixed(2);
+    const binMaxValue = ((i + 1) * binSize).toFixed(2);
+    binMinValues.push(binMinValue);
+    binMaxValues.push(binMaxValue);
+  }
+
+  let graphHTML =
+    '<div style="display: flex; flex-direction: row; align-items: flex-end;">';
 
   for (let i = 0; i < bins.length; i++) {
     const binFrequency = bins[i];
-    const binMinValue = i === 0 ? 0 : (i * binSize).toFixed(2);
-    const binMaxValue = i === numBins - 1 ? maxTime.toFixed(2) : ((i + 1) * binSize).toFixed(2);
+    const binMinValue = binMinValues[i];
+    const binMaxValue = binMaxValues[i];
     const barLength = Math.ceil((binFrequency / times.length) * maxBarLength);
 
-    const rangeAndCount = `[${binMinValue} - ${binMaxValue} s]`;
-    maxRangeWidth = Math.max(maxRangeWidth, rangeAndCount.length);
-    maxCountWidth = Math.max(maxCountWidth, binFrequency.toString().length);
+    graphHTML += `
+      <div style="margin: 5px; display: flex; flex-direction: column; align-items: center;">
+        <div style="background-color: #007BFF; width: 20px; height: ${barLength}px;"></div>
+        <div style="text-align: center;">[${binMinValue} - ${binMaxValue} s]</div>
+        <div style="text-align: center;">${binFrequency}</div> <!-- Display count above the bar -->
+      </div>
+    `;
   }
 
-  let graph = "";
-
-  for (let i = 0; i < bins.length; i++) {
-    const binFrequency = bins[i];
-    const binMinValue = i === 0 ? 0 : (i * binSize).toFixed(2);
-    const binMaxValue = i === numBins - 1 ? maxTime.toFixed(2) : ((i + 1) * binSize).toFixed(2);
-    const barLength = Math.ceil((binFrequency / times.length) * maxBarLength);
-
-    const binMinValueStr = binMinValue.toString().padEnd(maxRangeWidth - 3);
-    const binMaxValueStr = binMaxValue.toString().padStart(maxRangeWidth - 3);
-    const rangeAndCount = `[${binMinValueStr} - ${binMaxValueStr} s]`;
-    const count = binFrequency.toString().padEnd(maxCountWidth);
-    const bars = `[${"=".repeat(barLength).padEnd(maxBarLengthWidth)}]`;
-
-    graph += `| ${bars} | ${rangeAndCount} | ${count} |\n`;
-  }
+  graphHTML += "</div>";
   const subBinSize = binSize / subBins;
-  let subBinsHTML = "<h2>Sub-Bins Within the First Bin</h2>\n";
-  subBinsHTML += "<table border='1'><tr><th>Sub-Bin</th><th>Count</th></tr>\n";
+  let subBinsHTML =
+    '<div style="display: flex; flex-direction: row; align-items: flex-end;">';
 
   for (let i = 0; i < subBins; i++) {
     const subBinMinValue = (i * subBinSize).toFixed(2);
     const subBinMaxValue = ((i + 1) * subBinSize).toFixed(2);
-    const subBinFrequency = times.filter((time) => time >= subBinMinValue && time < subBinMaxValue).length;
-    subBinsHTML += `<tr><td>${subBinMinValue} - ${subBinMaxValue} s</td><td>${subBinFrequency}</td></tr>\n`;
+    const subBinFrequency = times.filter(
+      (time) => time >= subBinMinValue && time < subBinMaxValue
+    ).length;
+    const subBarLength = Math.ceil(
+      (subBinFrequency / times.length) * maxBarLength
+    );
+
+    subBinsHTML += `
+      <div style="margin: 5px; display: flex; flex-direction: column; align-items: center;">
+        <div style="background-color: #FF5733; width: 20px; height: ${subBarLength}px;"></div>
+        <div style="text-align: center;">[${subBinMinValue} - ${subBinMaxValue} s]</div>
+        <div style="text-align: center;">${subBinFrequency}</div> <!-- Display count above the bar -->
+      </div>
+    `;
   }
 
-  subBinsHTML += "</table>\n";
+  subBinsHTML += "</div>";
 
-  return `<pre>${graph}</pre>\n${subBinsHTML}`;
+  return `<h2>Main Bins</h2>${graphHTML}<h2>Sub-Bins Within the First Bin</h2>${subBinsHTML}`;
+}
+
+function listClonesHTML() {
+  let cloneStore = CloneStorage.getInstance();
+  let output = "";
+
+  // Reverse the order of clones to have the latest at the top
+  let reversedClones = cloneStore.clones.slice().reverse();
+
+  reversedClones.forEach((clone) => {
+    output += "<hr>\n";
+    if (Array.isArray(clone.sourceName) && clone.sourceName.length > 0) {
+      const firstSourceLine = clone.sourceName[0].myLineNumber;
+      const lastSourceLine =
+        clone.sourceName[clone.sourceName.length - 1].myLineNumber;
+      output += "<h2>Source File: " + clone.sourceChunk + "</h2>\n";
+      output +=
+        "<p>Starting at line: " +
+        firstSourceLine +
+        " , ending at line: " +
+        lastSourceLine +
+        "</p>\n";
+      output += "<ul>";
+      clone.targets.forEach((target) => {
+        if (target && Array.isArray(target.name) && target.name.length > 0) {
+          const firstTargetLine = target.name[0];
+          if (firstTargetLine && firstTargetLine.myContent) {
+            output +=
+              '<li>Found in "' +
+              firstTargetLine.myContent +
+              '" starting at line ' +
+              firstTargetLine.myLineNumber +
+              "\n";
+          } else {
+            output +=
+              "<li>Found in unknown location starting at line " +
+              firstTargetLine.myLineNumber +
+              "\n";
+          }
+        } else {
+          output +=
+            "<li>Found in unknown location starting at line " + target + "\n";
+        }
+      });
+
+      output += "</ul>\n";
+      output += "<h3>Contents:</h3>\n<pre><code>\n";
+      output += clone.originalCode;
+      output += "</code></pre>\n";
+    } else {
+      console.error(
+        "Error: sourceName is not an array or is empty in the clone object."
+      );
+    }
+  });
+
+  return output;
 }
 
 function listProcessedFilesHTML() {
@@ -225,7 +395,7 @@ PASS = (fn) => (d) => {
   }
 };
 
-function printStatistics(file, cloneDetector, cloneStore) {
+function printStatistics(file, cloneDetector, cloneStore, normalize) {
   if (cloneDetector.numberOfProcessedFiles % STATS_FREQ === 0) {
     console.log(
       "Processed",
@@ -234,28 +404,44 @@ function printStatistics(file, cloneDetector, cloneStore) {
       cloneStore.numberOfClones,
       "clones."
     );
+    const normalize = process.env.NORMALIZE === "true"; // Check the NORMALIZE flag
     console.log("List of found clones available at", URL);
-
     if (cloneDetector.numberOfProcessedFiles % TIMERS_FREQ === 0) {
       let avgTimePerFile =
-        fileTimers.reduce((sum, timer) => sum + Number(Object.values(timer.timers)[0]), 0) /
-        fileTimers.length;
+        fileTimers.reduce(
+          (sum, timer) => sum + Number(Object.values(timer.timers)[0]),
+          0
+        ) / fileTimers.length;
       let avgTimeLast100Files =
         fileTimers
           .slice(-100)
-          .reduce((sum, timer) => sum + Number(Object.values(timer.timers)[0]), 0) /
-        Math.min(fileTimers.length, 100);
+          .reduce(
+            (sum, timer) => sum + Number(Object.values(timer.timers)[0]),
+            0
+          ) / Math.min(fileTimers.length, 100);
       let avgTimeLast1000Files =
         fileTimers
           .slice(-1000)
-          .reduce((sum, timer) => sum + Number(Object.values(timer.timers)[0]), 0) /
-        Math.min(fileTimers.length, 1000);
+          .reduce(
+            (sum, timer) => sum + Number(Object.values(timer.timers)[0]),
+            0
+          ) / Math.min(fileTimers.length, 1000);
 
-      console.log("Average time per file:", avgTimePerFile, "µs");
-      console.log("Average time per last 100 files:", avgTimeLast100Files, "µs");
-      console.log("Average time per last 1000 files:", avgTimeLast1000Files, "µs");
-
-      // Add more statistics as needed
+      console.log(
+        `${
+          normalize ? "Normalized a" : "A"
+        }verage time per file: ${avgTimePerFile} µs`
+      );
+      console.log(
+        `${
+          normalize ? "Normalized a" : "A"
+        }verage time per last 100 files:: ${avgTimeLast100Files} µs`
+      );
+      console.log(
+        `${
+          normalize ? "Normalized a" : "A"
+        }verage time per last 1000 files:: ${avgTimeLast1000Files} µs`
+      );
 
       console.log("List of found clones available at", URL);
     }
@@ -263,7 +449,6 @@ function printStatistics(file, cloneDetector, cloneStore) {
 
   return file;
 }
-
 
 // Processing of the file
 // --------------------
@@ -277,6 +462,7 @@ function processFile(filename, contents) {
   let cloneStore = CloneStorage.getInstance();
   let file = { name: filename, contents: contents };
   const fileTimer = { filename, timers: { total: 0n, match: 0n } }; // Initialize timers
+  const normalize = process.env.NORMALIZE === "true"; // Check the NORMALIZE flag
 
   return Promise.resolve(file)
     .then((file) => {
@@ -300,6 +486,15 @@ function processFile(filename, contents) {
     .then((file) => {
       Timer.endTimer(fileTimer, "total");
       fileTimers.push(fileTimer);
+
+      if (normalize) {
+        const linesInFile = BigInt(contents.split("\n").length);
+        fileTimer.timers.match =
+          linesInFile > 0n ? fileTimer.timers.match / linesInFile : 0n;
+        fileTimer.timers.total =
+          linesInFile > 0n ? fileTimer.timers.total / linesInFile : 0n;
+      }
+
       return file;
     })
     .then(PASS((file) => (lastFile = file)))

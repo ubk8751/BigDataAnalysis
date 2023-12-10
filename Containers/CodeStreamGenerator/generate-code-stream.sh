@@ -34,9 +34,9 @@ if [[ "$1" == "TEST" ]]; then
   sleep 10
 fi
 
-#Swhile read LINE; do
-#  sendFile $LINE
-#  sleep $DELAY
-#one < ~/files.txt
+while read LINE; do
+  sendFile $LINE
+  sleep $DELAY
+done < ~/files.txt
 
 echo "No more files to send. Exiting."
