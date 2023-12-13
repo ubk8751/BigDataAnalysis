@@ -95,34 +95,38 @@ class CloneDetector {
   #filterCloneCandidates(file, compareFile) {
     const newInstances = file.chunks.flatMap((chunk) => {
       const matchingChunks = compareFile.chunks.filter((compareChunk) =>
-        this.#chunkMatch(chunk, compareChunk)
+        this.#chunkMatch(chunk, compareChunk),
       );
 
       if (matchingChunks === undefined) {
-        console.log(matchingChunks);
+        console.log("ERROR: matchingChunks undefined: " + matchingChunks);
       }
 
       return matchingChunks.map((matchingChunk) => {
         if (matchingChunk !== undefined) {
-          // Check if matchingChunk is defined
-          //console.log('Creating Clone:', chunk, matchingChunk, file.name, compareFile.name);
           const clone = new Clone(
             chunk,
             matchingChunk,
             file.name,
-            compareFile.name
+            compareFile.name,
           );
-          //console.log('Created Clone:', clone);
           return clone;
         } else {
-          return null; // Return null if matchingChunk is undefined
+          console.log(
+            "Error in clone creation, matchingChunk: " +
+              matchingChunk +
+              "\n" +
+              "chunk: " +
+              chunk,
+          );
+          return null;
         }
       });
     });
 
     file.instances = file.instances || [];
     file.instances = file.instances.concat(
-      newInstances.filter((clone) => clone !== null)
+      newInstances.filter((clone) => clone !== null),
     ); // Filter out null values
     return file;
   }
@@ -146,7 +150,7 @@ class CloneDetector {
     // (using Clone::maybeExpandWith(), which returns true if it could expand)
     const expandedClones = file.instances.reduce((acc, currentClone) => {
       const cloneExpanded = acc.some((existingClone) =>
-        existingClone.maybeExpandWith(currentClone)
+        existingClone.maybeExpandWith(currentClone),
       );
       if (!cloneExpanded) {
         acc.push(currentClone);

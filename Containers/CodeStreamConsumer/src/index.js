@@ -30,9 +30,12 @@ const form = formidable({ multiples: false });
 app.post("/", fileReceiver);
 function fileReceiver(req, res, next) {
   form.parse(req, (err, fields, files) => {
-    fs.readFile(files.data.filepath, { encoding: "utf8" }).then((data) => {
-      return processFile(fields.name, data);
-    });
+    if (files.data.filepath) {
+      // adding this to make it stop crashing...
+      fs.readFile(files.data.filepath, { encoding: "utf8" }).then((data) => {
+        return processFile(fields.name, data);
+      });
+    }
   });
   return res.end("");
 }
@@ -76,12 +79,22 @@ function getStatistics() {
 
 function lastFileTimersHTML() {
   if (!lastFile) return "";
-  output = "<p>Timers for last file processed:</p>\n<ul>\n";
-  let timers = Timer.getTimers(lastFile);
-  for (t in timers) {
-    output += "<li>" + t + ": " + timers[t] / 1000n + " µs\n";
+  let output = "<p>Timers for last file processed:</p>\n";
+  const timers = Timer.getTimers(lastFile.name, fileTimers);
+  if (timers.length === 0) {
+    output += "<p>No timers found for the last file.</p>\n";
+  } else {
+    output += "<ul>\n";
+    output += "<li>Filename: " + lastFile.filename + "</li>\n";
+
+    for (const timerType in timers[0].timers) {
+      const timerValue = timers[0].timers[timerType];
+      output += "<li>" + timerType + ": " + timerValue + " µs</li>\n";
+    }
+
+    output += "</ul>\n";
   }
-  output += "</ul>\n";
+
   return output;
 }
 
@@ -102,7 +115,7 @@ function viewStats(req, res, next) {
       sum.match += fileTimer.timers.match;
       return sum;
     },
-    { total: 0n, match: 0n }
+    { total: 0n, match: 0n },
   );
 
   let avgTimePerFile =
@@ -197,35 +210,12 @@ function viewStats(req, res, next) {
   res.send(page);
 }
 
-// Function to generate the condensed vertical line graph
-// Function to generate the condensed line graph for average total time
-function generateAverageTotalTimeGraph(data) {
-  const maxGraphWidth = 40;
-  const maxAverageTime = Math.max(
-    ...data.map((timer) => Number(timer.timers.total) / 1000)
-  ); // Convert to milliseconds
-  const step = maxAverageTime / maxGraphWidth;
-  const numPoints = data.length < maxGraphWidth ? data.length : maxGraphWidth;
-
-  let graph = "";
-
-  for (let i = 0; i < numPoints; i++) {
-    const averageTotalTime = Number(data[i].timers.total) / 1000; // Convert to milliseconds
-    const numFilesProcessed = i + 1;
-    const barLength = Math.ceil(averageTotalTime / step);
-    const progressBar = "=".repeat(barLength).padEnd(maxGraphWidth);
-    graph += `${numFilesProcessed}: ${progressBar}\n`;
-  }
-
-  return `<pre>${graph}</pre>\n`;
-}
-
 function generateDistributionGraph(data, property) {
   const numBins = 10;
   const subBins = 10;
   const maxBarLength = 40;
   const times = data.map(
-    (fileTimer) => Number(fileTimer.timers[property]) / 1000000
+    (fileTimer) => Number(fileTimer.timers[property]) / 1000000,
   ); // Convert to seconds
 
   let maxTime = 0;
@@ -284,10 +274,10 @@ function generateDistributionGraph(data, property) {
     const subBinMinValue = (i * subBinSize).toFixed(2);
     const subBinMaxValue = ((i + 1) * subBinSize).toFixed(2);
     const subBinFrequency = times.filter(
-      (time) => time >= subBinMinValue && time < subBinMaxValue
+      (time) => time >= subBinMinValue && time < subBinMaxValue,
     ).length;
     const subBarLength = Math.ceil(
-      (subBinFrequency / times.length) * maxBarLength
+      (subBinFrequency / times.length) * maxBarLength,
     );
 
     subBinsHTML += `
@@ -313,11 +303,11 @@ function listClonesHTML() {
 
   reversedClones.forEach((clone) => {
     output += "<hr>\n";
-    if (Array.isArray(clone.sourceName) && clone.sourceName.length > 0) {
-      const firstSourceLine = clone.sourceName[0].myLineNumber;
+    if (Array.isArray(clone.sourceChunk) && clone.sourceChunk.length > 0) {
+      const firstSourceLine = clone.sourceChunk[0].myLineNumber;
       const lastSourceLine =
-        clone.sourceName[clone.sourceName.length - 1].myLineNumber;
-      output += "<h2>Source File: " + clone.sourceChunk + "</h2>\n";
+        clone.sourceChunk[clone.sourceChunk.length - 1].myLineNumber;
+      output += "<h2>Source File: " + clone.sourceName + "</h2>\n";
       output +=
         "<p>Starting at line: " +
         firstSourceLine +
@@ -326,24 +316,18 @@ function listClonesHTML() {
         "</p>\n";
       output += "<ul>";
       clone.targets.forEach((target) => {
-        if (target && Array.isArray(target.name) && target.name.length > 0) {
-          const firstTargetLine = target.name[0];
-          if (firstTargetLine && firstTargetLine.myContent) {
-            output +=
-              '<li>Found in "' +
-              firstTargetLine.myContent +
-              '" starting at line ' +
-              firstTargetLine.myLineNumber +
-              "\n";
-          } else {
-            output +=
-              "<li>Found in unknown location starting at line " +
-              firstTargetLine.myLineNumber +
-              "\n";
-          }
+        if (target.name && target.startLine) {
+          output +=
+            '<li>Found in "' +
+            target.name +
+            '" starting at line ' +
+            target.startLine +
+            "\n";
         } else {
           output +=
-            "<li>Found in unknown location starting at line " + target + "\n";
+            "<li>Found in unknown location starting at line " +
+            target.startLine +
+            "\n";
         }
       });
 
@@ -353,7 +337,7 @@ function listClonesHTML() {
       output += "</code></pre>\n";
     } else {
       console.error(
-        "Error: sourceName is not an array or is empty in the clone object."
+        "Error: sourceName is not an array or is empty in the clone object.",
       );
     }
   });
@@ -402,7 +386,7 @@ function printStatistics(file, cloneDetector, cloneStore, normalize) {
       cloneDetector.numberOfProcessedFiles,
       "files and found",
       cloneStore.numberOfClones,
-      "clones."
+      "clones.",
     );
     const normalize = process.env.NORMALIZE === "true"; // Check the NORMALIZE flag
     console.log("List of found clones available at", URL);
@@ -410,37 +394,37 @@ function printStatistics(file, cloneDetector, cloneStore, normalize) {
       let avgTimePerFile =
         fileTimers.reduce(
           (sum, timer) => sum + Number(Object.values(timer.timers)[0]),
-          0
+          0,
         ) / fileTimers.length;
       let avgTimeLast100Files =
         fileTimers
           .slice(-100)
           .reduce(
             (sum, timer) => sum + Number(Object.values(timer.timers)[0]),
-            0
+            0,
           ) / Math.min(fileTimers.length, 100);
       let avgTimeLast1000Files =
         fileTimers
           .slice(-1000)
           .reduce(
             (sum, timer) => sum + Number(Object.values(timer.timers)[0]),
-            0
+            0,
           ) / Math.min(fileTimers.length, 1000);
 
       console.log(
         `${
           normalize ? "Normalized a" : "A"
-        }verage time per file: ${avgTimePerFile} µs`
+        }verage time per file: ${avgTimePerFile} µs`,
       );
       console.log(
         `${
           normalize ? "Normalized a" : "A"
-        }verage time per last 100 files:: ${avgTimeLast100Files} µs`
+        }verage time per last 100 files:: ${avgTimeLast100Files} µs`,
       );
       console.log(
         `${
           normalize ? "Normalized a" : "A"
-        }verage time per last 1000 files:: ${avgTimeLast1000Files} µs`
+        }verage time per last 1000 files:: ${avgTimeLast1000Files} µs`,
       );
 
       console.log("List of found clones available at", URL);
@@ -460,15 +444,17 @@ function printStatistics(file, cloneDetector, cloneStore, normalize) {
 function processFile(filename, contents) {
   let cd = new CloneDetector();
   let cloneStore = CloneStorage.getInstance();
-  let file = { name: filename, contents: contents };
   const fileTimer = { filename, timers: { total: 0n, match: 0n } }; // Initialize timers
   const normalize = process.env.NORMALIZE === "true"; // Check the NORMALIZE flag
 
+  // Start the total timer
+  Timer.startTimer(fileTimer, "total");
+
+  // Create the file object
+  let file = { name: filename, contents: contents };
+
   return Promise.resolve(file)
-    .then((file) => {
-      Timer.startTimer(fileTimer, "total");
-      return cd.preprocess(file);
-    })
+    .then((file) => cd.preprocess(file))
     .then((file) => cd.transform(file))
     .then((file) => {
       Timer.startTimer(fileTimer, "match");
@@ -497,9 +483,14 @@ function processFile(filename, contents) {
 
       return file;
     })
-    .then(PASS((file) => (lastFile = file)))
-    .then(PASS((file) => printStatistics(file, cd, cloneStore)))
+    .then(
+      PASS((file) => {
+        lastFile = file;
+        return file;
+      }),
+    )
+    .then(PASS((file) => printStatistics(file, cd, cloneStore, normalize)))
     .then((file) => {
-      file;
+      return file;
     });
 }
