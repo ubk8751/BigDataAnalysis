@@ -13,6 +13,7 @@ const TIMERS_FREQ = 10;
 const STATS_FREQ = 100;
 const URL = process.env.URL || "http://localhost:8080/";
 var lastFile = null;
+var skippedFiles = 0;
 
 /*
 1. Preprocessing: Remove uninteresting code, determine source and comparison units/granularities
@@ -35,6 +36,9 @@ function fileReceiver(req, res, next) {
       fs.readFile(files.data.filepath, { encoding: "utf8" }).then((data) => {
         return processFile(fields.name, data);
       });
+    } else {
+      skippedFiles++;
+      console.log(`${skippedFiles} files skipped\n`);
     }
   });
   return res.end("");
@@ -85,7 +89,7 @@ function lastFileTimersHTML() {
     output += "<p>No timers found for the last file.</p>\n";
   } else {
     output += "<ul>\n";
-    output += "<li>Filename: " + lastFile.filename + "</li>\n";
+    output += "<li>Filename: " + lastFile.name + "</li>\n";
 
     for (const timerType in timers[0].timers) {
       const timerValue = timers[0].timers[timerType];
@@ -361,6 +365,7 @@ function viewClones(req, res, next) {
   page += "<BODY><H1>CodeStream Clone Detector</H1>\n";
   page += "<P>" + getStatistics() + "</P>\n";
   page += lastFileTimersHTML() + "\n";
+  page += `Skipped files: ${skippedFiles}\n`;
   page += listClonesHTML() + "\n";
   page += listProcessedFilesHTML() + "\n";
   page += "</BODY></HTML>";
@@ -427,7 +432,7 @@ function printStatistics(file, cloneDetector, cloneStore, normalize) {
         }verage time per last 1000 files:: ${avgTimeLast1000Files} µs`,
       );
 
-      console.log("List of found clones available at", URL);
+      console.log("List of found clones available at" + URL + "\n");
     }
   }
 
