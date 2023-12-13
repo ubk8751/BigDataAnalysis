@@ -394,7 +394,7 @@ function printStatistics(file, cloneDetector, cloneStore, normalize) {
       "clones.",
     );
     const normalize = process.env.NORMALIZE === "true"; // Check the NORMALIZE flag
-    console.log("List of found clones available at", URL);
+    console.log("List of found clones available at ", URL);
     if (cloneDetector.numberOfProcessedFiles % TIMERS_FREQ === 0) {
       let avgTimePerFile =
         fileTimers.reduce(
@@ -424,15 +424,13 @@ function printStatistics(file, cloneDetector, cloneStore, normalize) {
       console.log(
         `${
           normalize ? "Normalized a" : "A"
-        }verage time per last 100 files:: ${avgTimeLast100Files} µs`,
+        }verage time per last 100 files: ${avgTimeLast100Files} µs`,
       );
       console.log(
         `${
           normalize ? "Normalized a" : "A"
-        }verage time per last 1000 files:: ${avgTimeLast1000Files} µs`,
+        }verage time per last 1000 files: ${avgTimeLast1000Files} µs\n`,
       );
-
-      console.log("List of found clones available at" + URL + "\n");
     }
   }
 
