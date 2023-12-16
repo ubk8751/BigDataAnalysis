@@ -10,6 +10,14 @@
 (def hostname (or (System/getenv "DBHOST") DEFAULT-DBHOST))
 (def collnames ["files"  "chunks" "candidates" "clones"])
 
+(defn addUpdate! [timestamp message]
+  (let [conn (mg/connect {:host hostname})
+        db (mg/get-db conn dbname)
+        collname "statusUpdates"
+        update {:timestamp timestamp
+                :message message}]
+    (mc/insert db collname update)))
+
 (defn print-statistics []
   (let [conn (mg/connect {:host hostname})        
         db (mg/get-db conn dbname)]
@@ -95,6 +103,13 @@
                                }}}}}]
                      :as "sourceContents"}}
                    {$project {:_id 0 :instances 1 :contents "$sourceContents.contents"}}])))
+
+(defn get-status-updates []
+  (let [conn (mg/connect {:host hostname})
+        db (mg/get-db conn dbname)
+        collname "statusUpdates"]
+    (println "Getting status updates from the database...") ; Add this line for debugging
+    (mc/find db collname {})))
 
 
 (defn get-dbconnection []
