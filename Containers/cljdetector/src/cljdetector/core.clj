@@ -12,7 +12,7 @@
   (let [timestamp (.toString (java.time.LocalDateTime/now))
         message (apply str args)]
     (println timestamp args)
-    (storage/addUpdate! timestamp message)
+    (storage/addUpdate! timestamp message)))
 
 
 (defn maybe-clear-db [args]

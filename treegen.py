@@ -15,6 +15,6 @@ def generate_folder_structure(path, exclusions, output_file):
 
 if __name__ == "__main__":
     base_path = r'/home/ubk8751/documents/BigDataAnalysis'
-    exclusions = ['venv', '.git', '__pycache__', 'CodeStreamConsumer', 'img', 'Documentation']
+    exclusions = ['venv', '.git', '__pycache__', 'CodeStreamConsumer', 'img', 'Documentation', 'CorpusGetter', 'CodeStreamGenerator']
     output_file = 'folder_structure.txt'
     generate_folder_structure(base_path, exclusions, output_file)
