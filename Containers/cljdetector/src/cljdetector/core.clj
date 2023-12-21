@@ -11,9 +11,8 @@
 (defn ts-println [& args]
   (let [timestamp (.toString (java.time.LocalDateTime/now))
         message (apply str args)]
-    (println timestamp args) ; Print to the console
-    (storage/addUpdate! timestamp message) ; Store in the database
-    (println "Status update added to the database:" timestamp message))) ; Add this line for debugging
+    (println timestamp args)
+    (storage/addUpdate! timestamp message)
 
 
 (defn maybe-clear-db [args]
