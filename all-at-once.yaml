@@ -28,7 +28,13 @@ services:
     volumes:
       - dbstorage:/data/db
       - dbconfig:/data/configdb
-    
+
+  monitortool:
+    build:
+      context: ./Containers/MonitorTool
+    depends_on:
+      - dbstorage
+
 volumes:
   dbstorage:
   dbconfig:
