@@ -35,6 +35,17 @@ services:
     depends_on:
       - dbstorage
 
+  #web-app:
+  #  build:
+  #    context: ./app
+  #  ports:
+  #   - 5000:5000
+  #  environment:
+  #    PYTHONDONTWRITEBYTECODE: "1"
+  #    PYTHONUNBUFFERED: "1"
+  #  depends_on:
+  #    - monitortool
+
 volumes:
   dbstorage:
   dbconfig:

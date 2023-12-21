@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Statistics Visualization</title>
+</head>
+<body>
+    <h1>Statistics Visualization</h1>
+
+    <div id="files-chart"></div>
+    <div id="chunks-chart"></div>
+    <div id="candidates-chart"></div>
+    <div id="clones-chart"></div>
+
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+        var filesChart = JSON.parse('{{ files_chart | safe | tojson | safe }}');
+        var chunksChart = JSON.parse('{{ chunks_chart | safe | tojson | safe }}');
+        var candidatesChart = JSON.parse('{{ candidates_chart | safe | tojson | safe }}');
+        var clonesChart = JSON.parse('{{ clones_chart | safe | tojson | safe }}');
+    
+        Plotly.newPlot('files-chart', filesChart.data, filesChart.layout);
+        Plotly.newPlot('chunks-chart', chunksChart.data, chunksChart.layout);
+        Plotly.newPlot('candidates-chart', candidatesChart.data, candidatesChart.layout);
+        Plotly.newPlot('clones-chart', clonesChart.data, clonesChart.layout);
+    </script>
+    
+    
+</body>
+</html>
