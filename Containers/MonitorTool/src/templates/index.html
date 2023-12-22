@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clone Detector Dashboard</title>
+</head>
+<body>
+    <h1>Clone Detector Dashboard</h1>
+    <p>New data is fetched at an interval of 10 seconds</p>
+    <h2>Latest Output:</h2>
+    <p>Files Count: {{ output['Files Count'] }}</p>
+    <p>Chunks Count: {{ output['Chunks Count'] }}</p>
+    <p>Candidates Count: {{ output['Candidates Count'] }}</p>
+    <p>Clones Count: {{ output['Clones Count'] }}</p>
+    <p>Iteration Average Processing Time: {{ output['Iteration Average Processing Time']|round(3) }} seconds</p>
+    <p>Average File Processing Time: {{ output['Average File Processing Time']}} seconds</p>
+    <p>Average Chunk Processing Time: {{ output['Average Chunk Processing Time']|round(3) }} seconds</p>
+    <p>Average Candidate Processing Time: {{ output['Average Candidate Processing Time']|round(3) }} seconds</p>
+    <p>Average Clone Processing Time: {{ output['Average Clone Processing Time']|round(3) }} seconds</p>
+    <p>Latest Message: {{ output['Latest Message'] }}</p>
+</body>
+</html>

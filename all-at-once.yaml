@@ -32,6 +32,11 @@ services:
   monitortool:
     build:
       context: ./Containers/MonitorTool
+    ports:
+     - 5000:5000
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
     depends_on:
       - dbstorage
 
