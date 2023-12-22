@@ -73,4 +73,5 @@
   (maybe-detect-clones args)
   (maybe-list-clones args)
   (ts-println "Summary")
-  (storage/print-statistics))
+  (storage/print-statistics)
+  (ts-println "Clone detection process complete."))
