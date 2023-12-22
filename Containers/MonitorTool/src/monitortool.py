@@ -26,26 +26,29 @@ while True:
     try:
         start_time = time.time()
 
-        files_count = db["files"].count_documents({})
-        chunks_count = db["chunks"].count_documents({})
-        candidates_count = db["candidates"].count_documents({})
-        clones_count = db["clones"].count_documents({})
-        if files_count > 0: 
+        f_count = db["files"].count_documents({})
+        ch_count = db["chunks"].count_documents({})
+        ca_count = db["candidates"].count_documents({})
+        cl_count = db["clones"].count_documents({})
+        if f_count > 0: 
             end_time = time.time()
             elapsed_time = end_time - start_time
 
-            files_processing_times.append((files_count, elapsed_time))
-            chunks_processing_times.append((chunks_count, elapsed_time))
-            candidates_processing_times.append((candidates_count, elapsed_time))
-            clones_processing_times.append((clones_count, elapsed_time))
+            files_processing_times.append((f_count, elapsed_time))
+            chunks_processing_times.append((ch_count, elapsed_time))
+            candidates_processing_times.append((ca_count, elapsed_time))
+            clones_processing_times.append((cl_count, elapsed_time))
 
-            print("Files Count:", files_count)
-            print("Chunks Count:", chunks_count)
-            print("Candidates Count:", candidates_count)
-            print("Clones Count:", clones_count)
+            print("Files Count:", f_count)
+            print("Chunks Count:", ch_count)
+            print("Candidates Count:", ca_count)
+            print("Clones Count:", cl_count)
 
-            cursor = db["statusUpdates"].find().sort([("_id", pymongo.DESCENDING)]).limit(1)
-            for update in cursor:
+            avg_file_processing_time = elapsed_time / f_count
+            print(f"Average File Processing Time: {avg_file_processing_time} seconds")
+
+            cur = db["statusUpdates"].find().sort([("_id", pymongo.DESCENDING)]).limit(1)
+            for update in cur:
                 print("Message:", update["message"])
             if len(files_processing_times) > 0 and len(files_processing_times) % (5 * 60 / 10) == 0:
                 calculate_and_print_statistics(files_processing_times, "Files")
