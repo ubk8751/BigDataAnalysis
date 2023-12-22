@@ -1,19 +1,38 @@
 #!/bin/bash
 
-if [ "$1" == "-c" ] && [ -z "$2" ]; then
-    echo "Usage: $0 -c [OPTIONS]"
+help() {
+    local message="$1"
+    echo "$message"
+    echo "Usage: $0 [OPTIONS]"
     echo "Options:"
-    echo "  c: Run the docker-compose down command"
-    echo "  v: Include the '-v' flag in docker-compose down"
-    echo "  i: Include the '--rmi all' flag in docker-compose down"
-    echo "  p: Include 'p' to run docker system prune"
+    echo "  h: Print help menu."
+    echo "  c: Run the docker-compose down command."
+    echo "  v: Include the '-v' flag in docker-compose down."
+    echo "  i: Include the '--rmi all' flag in docker-compose down."
+    echo "  p: Include 'p' to run docker system prune."
+    echo "  b: Include the '--build' option when running docker-compose up."
     exit 1
-fi
+}
 
 options=""
+boptions=""
+prune=""
+use_c=false
 
-while getopts "vip" opt; do
-    case $opt in
+args="$@"
+
+# Check for the help flag
+if [[ "$1" == "h" ]]; then
+    help "HELP MENU"
+fi
+
+# Iterate over each character in args
+for ((i = 0; i < ${#args}; i++)); do
+    letter="${args:$i:1}"
+    case "$letter" in
+        c)
+            use_c=true
+            ;;
         v)
             options="$options -v"
             ;;
@@ -23,19 +42,21 @@ while getopts "vip" opt; do
         p)
             prune="yes"
             ;;
-        \?)
-            echo "Invalid option: -$OPTARG" >&2
-            exit 1
+        b)
+            boptions="$boptions --build"
+            ;;
+        *)
+            help "Invalid option: $letter"
             ;;
     esac
 done
 
-if [ "$1" == "-c" ] && ["c" in ]; then
+if [ -n "$use_c" ]; then
     docker-compose -f all-at-once.yaml down $options
 fi
 
-if [ "$prune" == "yes" ]; then
+if [ -n "$prune" ]; then
     docker system prune -f
 fi
 
-docker-compose -f all-at-once.yaml up --build
+docker-compose -f all-at-once.yaml up $boptions
