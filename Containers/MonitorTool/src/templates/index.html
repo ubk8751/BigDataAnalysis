@@ -1,21 +1,98 @@
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>Clone Detector Dashboard</title>
-</head>
-<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
+  </head>
+  <body>
     <h1>Clone Detector Dashboard</h1>
-    <p>New data is fetched at an interval of 10 seconds</p>
+    <p>New data is fetched at an interval of {{ sleep_time }} seconds</p>
+    <p>Runtime: {{ g_elapsed_time }}</p>
     <h2>Latest Output:</h2>
     <p>Files Count: {{ output['Files Count'] }}</p>
     <p>Chunks Count: {{ output['Chunks Count'] }}</p>
     <p>Candidates Count: {{ output['Candidates Count'] }}</p>
     <p>Clones Count: {{ output['Clones Count'] }}</p>
-    <p>Iteration Average Processing Time: {{ output['Iteration Average Processing Time']|round(3) }} seconds</p>
-    <p>Average File Processing Time: {{ output['Average File Processing Time']}} seconds</p>
-    <p>Average Chunk Processing Time: {{ output['Average Chunk Processing Time']|round(3) }} seconds</p>
-    <p>Average Candidate Processing Time: {{ output['Average Candidate Processing Time']|round(3) }} seconds</p>
-    <p>Average Clone Processing Time: {{ output['Average Clone Processing Time']|round(3) }} seconds</p>
+    <p>
+      Iteration Average Processing Time: {{ output['Iteration Average Processing Time']|display_time }} seconds
+    </p>
+    <p>
+      Average File Processing Time: {{ output['Average File Processing Time']|display_time }} seconds
+    </p>
+    <p>
+      Average Chunk Processing Time: {{ output['Average Chunk Processing Time']|display_time }} seconds
+    </p>
+    <p>
+      Average Candidate Processing Time: {{ output['Average Candidate Processing Time']|display_time }} seconds
+    </p>
+    <p>
+      Average Clone Processing Time: {{ output['Average Clone Processing Time']|display_time }} seconds
+    </p>
     <p>Latest Message: {{ output['Latest Message'] }}</p>
-</body>
+    <h2>Line Charts:</h2>
+
+    <canvas id="fileChart" width="400" height="200"></canvas>
+    <canvas id="chunkChart" width="400" height="200"></canvas>
+    <canvas id="candidateChart" width="400" height="200"></canvas>
+    <canvas id="cloneChart" width="400" height="200"></canvas>
+
+    <script type="text/javascript">
+      var dataPoints = {{ data_points|safe }};
+
+      var filesData = dataPoints.filter(function(item) { return item.type === 'Files'; });
+      var chunksData = dataPoints.filter(function(item) { return item.type === 'Chunks'; });
+      var candidatesData = dataPoints.filter(function(item) { return item.type === 'Candidates'; });
+      var clonesData = dataPoints.filter(function(item) { return item.type === 'Clones'; });
+
+      function createLineChart(canvasId, data, xAxisLabel, yAxisLabel, title) {
+          var ctx = document.getElementById(canvasId).getContext("2d");
+          var counts = data.map(function(item) { return item.count; });
+          var times = data.map(function(item) { return item.time; }); 
+
+          var chart = new Chart(ctx, {
+              type: "line",
+              data: {
+                  labels: counts,
+                  datasets: [
+                      {
+                          label: yAxisLabel,
+                          data: times,
+                          borderColor: "rgba(75, 192, 192, 1)",
+                          borderWidth: 2,
+                          fill: false,
+                      },
+                  ],
+              },
+              options: {
+                  scales: {
+                      x: {
+                          beginAtZero: true,
+                          title: {
+                              display: true,
+                              text: xAxisLabel,
+                          },
+                      },
+                      y: {
+                          display: true,
+                          title: {
+                              display: true,
+                              text: yAxisLabel,
+                          },
+                      },
+                  },
+                  plugins: {
+                      title: {
+                          display: true,
+                          text: title,
+                      },
+                  },
+              },
+          });
+      }
+      createLineChart("fileChart", filesData, "Time", "File Counts", "File Processing Time per Number of Processed Files");
+      createLineChart("chunkChart", chunksData, "Time", "Chunk Counts", "Chunk Processing Time per Number of Processed Chunks");
+      createLineChart("candidateChart", candidatesData, "Time", "Candidate Counts", "Candidate Processing Time per Number of Processed Candidates");
+      createLineChart("cloneChart", clonesData, "Time", "Clone Counts", "Clone Processing Time per Number of Found Clones");
+    </script>
+  </body>
 </html>
