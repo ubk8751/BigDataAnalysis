@@ -14,7 +14,6 @@
     (println timestamp args)
     (storage/addUpdate! timestamp message)))
 
-
 (defn maybe-clear-db [args]
   (when (some #{"CLEAR"} (map string/upper-case args))
       (ts-println "Clearing database...")
@@ -73,5 +72,4 @@
   (maybe-detect-clones args)
   (maybe-list-clones args)
   (ts-println "Summary")
-  (storage/print-statistics)
-  (ts-println "Clone detection process complete."))
+  (storage/print-statistics))
