@@ -2,6 +2,38 @@
 
 Original code copied from: [ https://github.com/mickesv/BigDataAnalytics]( https://github.com/mickesv/BigDataAnalytics). Edits made to code relevant to assignment.
 
+## Assignment 3 Boot
+
+To run the program, follow these instructions using the `boot.sh` script located in the `BigDataAnalysis` project folder. By default, running `boot.sh` with no flags will execute:
+
+    docker-compose -f all-at-once-yaml up
+
+### Available Flags
+
+You can customize the behavior of the program by adding flags to the `boot.sh` script. Here are the available flags and their functionalities:
+
+- `c`: Run the docker-compose down command to shut down active containers.
+
+- `v`: Include the '-v' flag when using `docker-compose down` to remove volumes associated with containers.
+
+- `i`: Include the '--rmi all' flag when using `docker-compose down`. Note that using this flag will require you to rebuild the `monitortool` and `clone-detector` images locally.
+
+- `p`: Include 'p' to run `docker system prune` to clean up your local Docker instance.
+
+- `b`: Include the '--build' option when running `docker-compose up` to rebuild the containers.
+
+- `u`: Include the `-u` flag when building the `monitortool` container. This activates 'flush' mode and deactivates stdin/stdout buffering.
+
+### Example Usage
+
+As an example, to shut down active containers and volumes, prune your local Docker instance, and then rebuild the containers, you can run the following command:
+
+\```shell
+./boot.sh cvpbu
+\```
+
+This command will execute the necessary Docker operations with the specified flags.
+
 ## Assignment 2 Questions:
 #### Are you able to process the entire Qualitas Corpus? If not, what are the main issues (think in terms of data processing and storage) that causes the CodeStreamConsumer to hang? How can you modify the application to avoid these issues?
 
