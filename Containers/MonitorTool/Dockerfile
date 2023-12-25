@@ -5,4 +5,3 @@ COPY ./requirements.txt .
 COPY ./src/templates ./templates 
 RUN pip install -r requirements.txt
 EXPOSE 5000
-CMD ["python3", "-u", "monitortool.py"]

@@ -37,8 +37,10 @@ services:
     environment:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
+      FLAGS: "${FLAGS}"
     depends_on:
       - dbstorage
+    command: ["python3", "monitortool.py", "$FLAGS"]
 
 volumes:
   dbstorage:
