@@ -28,9 +28,7 @@ You can customize the behavior of the program by adding flags to the `boot.sh` s
 
 As an example, to shut down active containers and volumes, prune your local Docker instance, and then rebuild the containers, you can run the following command:
 
-\```shell
-./boot.sh cvpbu
-\```
+    ./boot.sh cvpbu
 
 This command will execute the necessary Docker operations with the specified flags.
 
