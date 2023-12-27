@@ -13,7 +13,9 @@
     <p>Chunks Count: {{ output['Chunks Count'] }}</p>
     <p>Candidates Count: {{ output['Candidates Count'] }}</p>
     <p>Clones Count: {{ output['Clones Count'] }}</p>
-    <p>Total Candidate Identification Time: {{ output['Total time of finding candidates']|display_time }}</p>
+    <p>
+      Total Candidate Identification Time: {{ output['Total time of finding candidates']|display_time }}
+    </p>
     <p>
       Iteration Average Processing Time: {{ output['Iteration Average Processing Time']|display_time }}
     </p>
@@ -28,10 +30,10 @@
     </p>
     <p>Latest Message: {{ output['Latest Message'] }}</p>
     {% if output['Latest Message'] == "Summary" %}
-      <h2>Stats after completion</h2>
-      <p>Finished after: {{ g_stop_time }}</p>
-      <p>Average clone size: {{ avg_clone_size }}</p>
-      <p>Average number of chunks per file: {{ avg_chunks_per_file }}</p>
+    <h2>Stats after completion</h2>
+    <p>Finished after: {{ g_stop_time }}</p>
+    <p>Average clone size: {{ avg_clone_size }}</p>
+    <p>Average number of chunks per file: {{ avg_chunks_per_file }}</p>
     {% endif %}
     <h2>Line Charts:</h2>
 
@@ -51,7 +53,7 @@
       function createLineChart(canvasId, data, xAxisLabel, yAxisLabel, title) {
           var ctx = document.getElementById(canvasId).getContext("2d");
           var counts = data.map(function(item) { return item.count; });
-          var times = data.map(function(item) { return item.time; }); 
+          var times = data.map(function(item) { return item.time; });
 
           var chart = new Chart(ctx, {
               type: "line",
