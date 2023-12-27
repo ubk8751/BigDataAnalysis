@@ -8,15 +8,7 @@
 (def dbname "cloneDetector")
 (def partition-size 100)
 (def hostname (or (System/getenv "DBHOST") DEFAULT-DBHOST))
-(def collnames ["files"  "chunks" "candidates" "clones"])
-
-(defn addUpdate! [timestamp message]
-  (let [conn (mg/connect {:host hostname})
-        db (mg/get-db conn dbname)
-        collname "statusUpdates"
-        update {:timestamp timestamp
-                :message message}]
-    (mc/insert db collname update)))
+(def collnames ["files"  "chunks" "candidates" "clones" "expansion_times"])
 
 (defn print-statistics []
   (let [conn (mg/connect {:host hostname})        
@@ -73,6 +65,12 @@
                     {$match {:numberOfInstances {$gt 1}}}
                     {"$out" "candidates"} ])))
 
+(defn store-expansion-times! [conn candidate expansion-time]
+  (let [db (mg/get-db conn dbname)
+        collname "expansion_times"
+        expansion-time-record {:clone_id (:id candidate)
+                              :expansion_time expansion-time}]
+    (mc/insert db collname expansion-time-record)))
 
 (defn consolidate-clones-and-source []
   (let [conn (mg/connect {:host hostname})        
