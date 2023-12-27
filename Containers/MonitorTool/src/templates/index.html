@@ -8,33 +8,36 @@
     <h1>Clone Detector Dashboard</h1>
     <p>New data is fetched at an interval of {{ sleep_time }} seconds</p>
     <p>Runtime: {{ g_elapsed_time }}</p>
-    <p>Finished at: {{ g_stop_time }}</p>
     <h2>Latest Output:</h2>
     <p>Files Count: {{ output['Files Count'] }}</p>
     <p>Chunks Count: {{ output['Chunks Count'] }}</p>
     <p>Candidates Count: {{ output['Candidates Count'] }}</p>
     <p>Clones Count: {{ output['Clones Count'] }}</p>
+    <p>Total Candidate Identification Time: {{ output['Total time of finding candidates']|display_time }}</p>
     <p>
-      Iteration Average Processing Time: {{ output['Iteration Average Processing Time']|display_time }} seconds
+      Iteration Average Processing Time: {{ output['Iteration Average Processing Time']|display_time }}
     </p>
     <p>
-      Average File Processing Time: {{ output['Average File Processing Time']|display_time }} seconds
+      Average File Processing Time: {{ output['Average File Processing Time']|display_time }}
     </p>
     <p>
-      Average Chunk Processing Time: {{ output['Average Chunk Processing Time']|display_time }} seconds
+      Average Chunk Processing Time: {{ output['Average Chunk Processing Time']|display_time }}
     </p>
     <p>
-      Average Candidate Processing Time: {{ output['Average Candidate Processing Time']|display_time }} seconds
-    </p>
-    <p>
-      Average Clone Processing Time: {{ output['Average Clone Processing Time']|display_time }} seconds
+      Average Clone Processing Time: {{ output['Average Clone Processing Time']|display_time }}
     </p>
     <p>Latest Message: {{ output['Latest Message'] }}</p>
+    {% if output['Latest Message'] == "Summary" %}
+      <h2>Stats after completion</h2>
+      <p>Finished after: {{ g_stop_time }}</p>
+      <p>Average clone size: {{ avg_clone_size }}</p>
+      <p>Average number of chunks per file: {{ avg_chunks_per_file }}</p>
+    {% endif %}
     <h2>Line Charts:</h2>
 
     <canvas id="fileChart" width="400" height="200"></canvas>
     <canvas id="chunkChart" width="400" height="200"></canvas>
-    <canvas id="candidateChart" width="400" height="200"></canvas>
+    <canvas id="expansionChart" width="400" height="200"></canvas>
     <canvas id="cloneChart" width="400" height="200"></canvas>
 
     <script type="text/javascript">
@@ -42,7 +45,7 @@
 
       var filesData = dataPoints.filter(function(item) { return item.type === 'Files'; });
       var chunksData = dataPoints.filter(function(item) { return item.type === 'Chunks'; });
-      var candidatesData = dataPoints.filter(function(item) { return item.type === 'Candidates'; });
+      var expansionData = dataPoints.filter(function(item) { return item.type === 'Expansions'; });
       var clonesData = dataPoints.filter(function(item) { return item.type === 'Clones'; });
 
       function createLineChart(canvasId, data, xAxisLabel, yAxisLabel, title) {
@@ -92,7 +95,7 @@
       }
       createLineChart("fileChart", filesData, "Time", "File Counts", "File Processing Time per Number of Processed Files");
       createLineChart("chunkChart", chunksData, "Time", "Chunk Counts", "Chunk Processing Time per Number of Processed Chunks");
-      createLineChart("candidateChart", candidatesData, "Time", "Candidate Counts", "Candidate Processing Time per Number of Processed Candidates");
+      createLineChart("expansionChart", expansionData, "Time", "Clone Counts", "Candidate Expansion Time per Number of Processed Clones");
       createLineChart("cloneChart", clonesData, "Time", "Clone Counts", "Clone Processing Time per Number of Found Clones");
     </script>
   </body>
