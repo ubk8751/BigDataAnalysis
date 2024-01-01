@@ -47,5 +47,10 @@
 (defn chunkify [chunkSize files]
   (map #(chunkify-file chunkSize %) files))
 
+;;(defn traverse-directory [path pattern]
+;;  (filter #(re-matches pattern (.getName %)) (file-seq (file path))))
+
 (defn traverse-directory [path pattern]
-  (filter #(re-matches pattern (.getName %)) (file-seq (file path))))
+  (filter #(and (re-matches pattern (.getName %)) 
+                (not (.isDirectory %))) 
+            (file-seq (file path)))) ;; Should fix that it doesn't add all files (according to Victor Arvidsson)

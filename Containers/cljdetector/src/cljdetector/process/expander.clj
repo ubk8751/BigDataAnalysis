@@ -67,13 +67,11 @@
            clone candidate]
       (if (empty? overlapping)
         (do
-          ;;(println "Number of Clones" (storage/count-items "clones") "Remaining candidates" (storage/count-items "candidates"))
           (storage/remove-overlapping-candidates! dbconnection (list candidate))
           (let [end-time (System/currentTimeMillis)]
-            (let [expansion-time (end-time - start-time)]
-              (storage/store-expansion-times! dbconnection candidate expansion-time))
-            clone)
-        )
+            ;; Store the expansion time directly
+            (storage/store-expansion-times! dbconnection (- end-time start-time)))
+          clone)
         (let [merged-clone (reduce merge-clones clone overlapping)]
           (storage/remove-overlapping-candidates! dbconnection overlapping)
           (recur (storage/get-overlapping-candidates dbconnection merged-clone)

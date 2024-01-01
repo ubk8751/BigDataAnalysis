@@ -10,6 +10,8 @@
 (def hostname (or (System/getenv "DBHOST") DEFAULT-DBHOST))
 (def collnames ["files"  "chunks" "candidates" "clones" "expansion_times"])
 
+(defonce clone-id-atom (atom 1))
+
 (defn print-statistics []
   (let [conn (mg/connect {:host hostname})        
         db (mg/get-db conn dbname)]
@@ -65,11 +67,15 @@
                     {$match {:numberOfInstances {$gt 1}}}
                     {"$out" "candidates"} ])))
 
-(defn store-expansion-times! [conn candidate expansion-time]
+(defn get-next-clone-id []
+  (swap! clone-id-atom inc))
+
+(defn store-expansion-times! [conn expansion-time]
   (let [db (mg/get-db conn dbname)
         collname "expansion_times"
-        expansion-time-record {:clone_id (:id candidate)
-                              :expansion_time expansion-time}]
+        expansion-time-record {:expansion_time expansion-time
+                              :clone_id (get-next-clone-id)}]
+    ;; Insert the expansion time record into the collection
     (mc/insert db collname expansion-time-record)))
 
 (defn consolidate-clones-and-source []
