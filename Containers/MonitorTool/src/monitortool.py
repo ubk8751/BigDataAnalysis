@@ -5,6 +5,9 @@ from flask import Flask, render_template, json
 from jinja2 import Environment
 import queue
 import csv
+import sys
+
+SAVE_TO_FILE = True # if true, data and final state will be saved to files that can be extracted.
 
 mongo_host = "dbstorage"
 mongo_port = 27017
@@ -14,53 +17,22 @@ client = pymongo.MongoClient(mongo_host, mongo_port)
 db = client[mongo_dbname]
 
 data_points_queue = queue.Queue()
-data_points = []
-
-processing_times = {
-    "Files": [],
-    "Chunks": [],
-    "Clones": [],
-    "Expansions": []
-}
-
-avg_processing_times = {
-    "Files": 0,
-    "Chunks": 0,
-    "Candidates": 0,
-    "Clones": 0,
-    "Expansions": 0
-}
-
-last_count = 0
-last_clone_id = 0
-
-f_count = 0
-ch_count = 0
-ca_count = 0
-cl_count = 0
-candidate_time_sum = 0
-avg_processing_time = 0.0
-
 sleep_time = 10
 global_start_time = 0
-global_stop_time = "N/A"
-
+global_stop_time = 0
 avg_chunk_per_file = 0
 avg_clone_size = 0
-
-latest_message = ""
-
 output = {
-    "Files Count": f_count,
-    "Chunks Count": ch_count,
-    "Candidates Count": ca_count,
-    "Clones Count": cl_count,
-    "Iteration Average Processing Time": avg_processing_time,
-    "Average File Processing Time": avg_processing_times["Files"],
-    "Average Chunk Processing Time": avg_processing_times["Chunks"],
-    "Average Clone Expansion Time": avg_processing_times["Expansions"],
-    "Average Clone Processing Time": avg_processing_times["Clones"],
-    "Latest Message": latest_message,
+    "Files Count": 0,
+    "Chunks Count": 0,
+    "Candidates Count": 0,
+    "Clones Count": 0,
+    "Iteration Average Processing Time": 0,
+    "Total time of finding candidates": 0,
+    "Average File Processing Time": 0,
+    "Average Chunk Processing Time": 0,
+    "Average Clone Expansion Time": 0,
+    "Latest Message": "",
 }
 
 app = Flask(__name__)
@@ -70,7 +42,7 @@ def format_output():
     string = ""
     for line in output:
         string += f'{line}: {output[line]}\n'
-    string += f'Elapsed time: {get_elapsed_time(global_start_time)}'
+    string += f'Elapsed time: {get_elapsed_time(global_start_time)}\n'
     string += '-------------------------------------------'
     return string
 
@@ -84,6 +56,7 @@ def split_data_points():
         "Expansions": []
     }
     for item in list(data_points_queue.queue):
+        print(item)
         out_data[item["type"]].append(item)
     return out_data
 
@@ -105,7 +78,11 @@ def get_elapsed_time(start_time):
 
     return time_str
 
-def determine_processed_type(f_diff, ch_diff, ca_diff, cl_diff):
+def calculate_avg_expansion_time(indir):
+    return sum(item["time"] for item in indir) / len(indir) if indir else 0
+
+def determine_processed_type(f_diff, ch_diff, ca_diff, cl_diff, latest_message):
+    global print_count
     if f_diff > 0:
         return "Files"
     elif ch_diff > 0:
@@ -136,38 +113,64 @@ def calculate_statistics(processing_times):
     return 0
 
 def calculate_average_clone_size(clones):
-    clone_sizes = []
+    total_size = 0
+    total_count = 0
+
     for clone in clones:
-        clone_sizes.append(clone['endLine'] - clone['startLine'])
-    return sum(clone_sizes)/len(clone_sizes)
+        if 'instances' in clone:
+            instances = clone['instances']
+            if instances:
+                total_size += instances[-1]['endLine'] - instances[0]['startLine']
+                total_count += 1
+
+    return total_size / total_count if total_count > 0 else 0
     
-def calculate_average_chunks(num_chunks, chunks_list):
-    files = []
+def calculate_average_chunks(chunks_list):
+    file_count = {}
+    total_chunks = 0
+
     for chunk in chunks_list:
-        if chunk['fileName'] not in files:
-            files.append(chunk['fileName'])
-    if len(files) == 0:
-        return 0
-    avg_chunks = num_chunks / len(files)
-    return avg_chunks
+        file_name = chunk['fileName']
+        if file_name not in file_count:
+            file_count[file_name] = 0
+        file_count[file_name] += 1
+        total_chunks += 1
+
+    num_unique_files = len(file_count)
+
+    return total_chunks / num_unique_files if num_unique_files > 0 else 0
+
 
 def monitor():
     global output
-    global last_count
-    global f_count
-    global ch_count
-    global ca_count
-    global cl_count
-    global candidate_time_sum
-    global avg_processing_time
-    global avg_processing_times
-    global last_clone_id
-    global latest_message
-    global data_points
+    global data_points_queue
+    global sleep_time
+    global global_start_time
+    global global_stop_time
+    global avg_chunk_per_file
+    global avg_clone_size
 
-    clone_time = {}
-    stop_monitoring = ""
+    stop_monitoring = False
     print_count = 0
+    processing_times = {
+        "Files": [],
+        "Chunks": [],
+        "Expansions": []
+    }
+    avg_processing_times = {
+        "Files": 0,
+        "Chunks": 0,
+        "Expansions": 0
+    }
+    
+    last_clone_id = 0
+
+    f_count, ch_count, ca_count = 0, 0, 0
+    cl_count, candidate_time_sum = 0, 0
+    avg_processing_time = 0
+
+    latest_message = ""
+    
     while not stop_monitoring:
         time.sleep(sleep_time)
         try:
@@ -177,23 +180,16 @@ def monitor():
             t_ch_count = db["chunks"].count_documents({})
             t_ca_count = db["candidates"].count_documents({})
             t_cl_count = db["clones"].count_documents({})
-            #chunks =db["chunks"].find({})
-
-            #with open("chunkscontent.txt", "w") as file:
-            #    file.write("Documents in 'chunks' collection:\n")
-            #    for chunk in chunks:
-            #        file.write(str(chunk) + "\n")
-
             diff = determine_processed_type(t_f_count - f_count, 
                                             t_ch_count - ch_count, 
                                             t_ca_count - ca_count, 
-                                            t_cl_count - cl_count)
+                                            t_cl_count - cl_count,
+                                            latest_message)
              
             f_count = t_f_count
             ch_count = t_ch_count
-            ca_count = t_ca_count
+            ca_count = t_ca_count if t_ca_count > ca_count else ca_count
             cl_count = t_cl_count
-
             type_count_map = {
                 "Files": f_count,
                 "Chunks": ch_count,
@@ -209,24 +205,24 @@ def monitor():
                 cur = db["statusUpdates"].find().sort([("_id", pymongo.DESCENDING)]).limit(1)
                 for update in cur:
                     latest_message = update["message"]
-                if diff != "Expansions" or diff != "Candidates":
+                if diff != "Expansions" and diff != "Candidates":
                     processing_times[diff].append((type_count_map[diff], elapsed_time))
-
-                if diff == "Candidates":
+                elif diff == "Candidates":
                     candidate_time_sum += elapsed_time
                     continue
-                if diff == "Expansions":
-                    clone_time = {}
+                elif diff == "Expansions":
                     expansion_times = list(db["expansion_times"].find({}))
-                    ex_count = len(expansion_times)
-                    if ex_count > 0:
-                        for t in expansion_times:
-                            if t["clone_id"] in clone_time.keys():
-                                clone_time[t["clone_id"]] = t["expansion_time"]
-                            else: 
-                                clone_time[t["clone_id"]] = t["expansion_time"]
-                        processing_times[diff] = [(key, value) for key, value in clone_time.items()]
-
+                    processing_times["Expansions"] = [{"count": t["clone_id"], "time": t["expansion_time"] / 1000} for t in expansion_times]
+                    if processing_times["Expansions"]:
+                        avg_processing_times["Expansions"] = sum(item["time"] for item in processing_times["Expansions"]) / len(processing_times["Expansions"])
+                        data_points_queue.put({
+                            "type": diff,
+                            "count": processing_times["Expansions"][-1]["count"],
+                            "time": avg_processing_times["Expansions"]
+                        })
+                    else:
+                        avg_processing_times["Expansions"] = 0
+                        
                 output = {
                     "Files Count": f_count,
                     "Chunks Count": ch_count,
@@ -236,19 +232,18 @@ def monitor():
                     "Total time of finding candidates": candidate_time_sum,
                     "Average File Processing Time": avg_processing_times["Files"],
                     "Average Chunk Processing Time": avg_processing_times["Chunks"],
-                    "Average Candidate Processing Time": avg_processing_times["Candidates"],
                     "Average Clone Expansion Time": avg_processing_times["Expansions"],
-                    "Average Clone Processing Time": avg_processing_times["Clones"],
                     "Latest Message": latest_message,
                 }
-                if diff != "Candidates":
+                if diff != "Candidates" and diff != "Expansions":
                     avg_processing_times[diff] = calculate_statistics(processing_times[diff])
                     data_points_queue.put({
                         "type": diff,
                         "count": type_count_map[diff],
                         "time": avg_processing_time
                     })
-                print_frequency = 10
+                
+                print_frequency = 10 # Print frequency is in "print_count minutes"
                 if (print_count != 0) and (print_count % (print_frequency * 60) == 0):
                     print(format_output())
                 
@@ -260,7 +255,6 @@ def monitor():
                     minutes, remainder = divmod(remainder, 60)
                     seconds, milliseconds = divmod(remainder, 1)
                     global_stop_time = f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}:{int(milliseconds * 1000):03}"
-                    
                     avg_processing_times["Candidates"] = candidate_time_sum/ca_count
 
                     print(f'Summarizing Qualitas Corpus processing.')
@@ -270,34 +264,37 @@ def monitor():
                     chunks = list(db["chunks"].find({}))
 
                     avg_clone_size = calculate_average_clone_size(clones)
-                    avg_chunk_per_file = calculate_average_chunks(ch_count, chunks)
-
-                    final_state = print(f'''
+                    avg_chunk_per_file = calculate_average_chunks(chunks)
+                    
+                    final_state = f'''
                             Completed after:                   {global_stop_time}
                             Files Count:                       {f_count}
                             Chunks Count:                      {ch_count}
                             Candidates Count:                  {ca_count}
                             Clones Count:                      {cl_count}
-                            Iteration Average Processing Time: {avg_processing_time}
-                            Average File Processing Time:      {avg_processing_times["Files"]}
-                            Average Chunk Processing Time:     {avg_processing_times["Chunks"]}
-                            Average Candidate Processing Time: {avg_processing_times["Candidates"]}
-                            Average Clone Expansion Time:      {avg_processing_times["Expansions"]}
-                            Average Clone Processing Time:     {avg_processing_times["Clones"]}
-                            Average Clone Size:                {avg_clone_size}
-                            Average number of chunks per file: {avg_chunk_per_file}
-                            ''')
+                            Iteration Average Processing Time: {avg_processing_time}s
+                            Average File Processing Time:      {avg_processing_times["Files"]}s
+                            Average Chunk Processing Time:     {avg_processing_times["Chunks"]}s
+                            Average Clone Expansion Time:      {avg_processing_times["Expansions"]}s
+                            Average Clone Size:                {avg_clone_size} lines
+                            Average number of chunks per file: {avg_chunk_per_file} chunks
+                            '''
                     print(final_state)
-                    with open("data/final_state.txt", "w") as final_state_file:
-                        final_state_file.write(final_state)
-                    
-                    split_data = split_data_points()
-                    for key in out_data.keys():
-                        write_data_to_csv(out_data[key], f'data/{key.lower()}.csv')
+                    #if SAVE_TO_FILE and not stop_monitoring:
+                    #    with open("data/final_state.txt", "w") as final_state_file:
+                    #        final_state_file.write(final_state)
+                        
+                        #split_data = split_data_points()
+                        #for key in out_data.keys():
+                        #    write_data_to_csv(split_data[key], f'data/{key.lower()}.csv')
                     stop_monitoring = True # It'll continue the monitoring forever, but it will stop processing the data
+                    time.sleep(60) # In case the program decides to exit afterwards, 
+                                   # this will give you a chance to load in the last 
+                                   # state of the page.
             print_count += sleep_time
         except Exception as e:
-            print("Error:", str(e))
+            print("Error in monitor function at line", sys.exc_info()[2].tb_lineno, ":", str(e))
+
 
 monitor_thread = threading.Thread(target=monitor)
 monitor_thread.start()

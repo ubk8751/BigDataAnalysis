@@ -1,0 +1,10 @@
+Completed after:                   04:05:26:776
+Files Count:                       163589
+Chunks Count:                      18211863
+Candidates Count:                  584748
+Clones Count:                      24961
+Average File Processing Time:      0.06863842691693987s
+Average Chunk Processing Time:     2.614514927637009s
+Average Clone Expansion Time:      0.45940907816194004s
+Average Clone Size:                108.79912663755458 lines
+Average number of chunks per file: 159.85414472298294 chunks
