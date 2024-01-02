@@ -8,7 +8,9 @@
 (def dbname "cloneDetector")
 (def partition-size 100)
 (def hostname (or (System/getenv "DBHOST") DEFAULT-DBHOST))
-(def collnames ["files"  "chunks" "candidates" "clones"])
+(def collnames ["files"  "chunks" "candidates" "clones" "expansion_times"])
+
+(defonce clone-id-atom (atom 1))
 
 (defn print-statistics []
   (let [conn (mg/connect {:host hostname})        
@@ -65,6 +67,18 @@
                     {$match {:numberOfInstances {$gt 1}}}
                     {"$out" "candidates"} ])))
 
+;; Added to track the number of added clones during expansion
+(defn get-next-clone-id []
+  (swap! clone-id-atom inc))
+
+
+;; Added to track expansion times
+(defn store-expansion-times! [conn expansion-time]
+  (let [db (mg/get-db conn dbname)
+        collname "expansion_times"
+        expansion-time-record {:expansion_time expansion-time
+                              :clone_id (get-next-clone-id)}]
+    (mc/insert db collname expansion-time-record)))
 
 (defn consolidate-clones-and-source []
   (let [conn (mg/connect {:host hostname})        
@@ -95,6 +109,13 @@
                                }}}}}]
                      :as "sourceContents"}}
                    {$project {:_id 0 :instances 1 :contents "$sourceContents.contents"}}])))
+
+(defn get-status-updates []
+  (let [conn (mg/connect {:host hostname})
+        db (mg/get-db conn dbname)
+        collname "statusUpdates"]
+    (println "Getting status updates from the database...") ; Add this line for debugging
+    (mc/find db collname {})))
 
 
 (defn get-dbconnection []
@@ -144,3 +165,11 @@
         collname "clones"
         anonymous-clone (select-keys clone [:numberOfInstances :instances])]
     (mc/insert db collname anonymous-clone)))
+
+(defn addUpdate! [timestamp message]
+  (let [conn (mg/connect {:host hostname})
+        db (mg/get-db conn dbname)
+        collname "statusUpdates"
+        update {:timestamp timestamp
+                :message message}]
+    (mc/insert db collname update)))

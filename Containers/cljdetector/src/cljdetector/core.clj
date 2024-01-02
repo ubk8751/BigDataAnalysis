@@ -8,8 +8,12 @@
 (def source-dir (or (System/getenv "SOURCEDIR") "/tmp"))
 (def source-type #".*\.java")
 
+;; Edited to comply with thask
 (defn ts-println [& args]
-  (println (.toString (java.time.LocalDateTime/now)) args))
+  (let [timestamp (.toString (java.time.LocalDateTime/now))
+        message (apply str args)]
+    (println timestamp args)
+    (storage/addUpdate! timestamp message)))
 
 (defn maybe-clear-db [args]
   (when (some #{"CLEAR"} (map string/upper-case args))
@@ -48,7 +52,12 @@
     (ts-println "Consolidating and listing clones...")
     (pretty-print (storage/consolidate-clones-and-source))))
 
-
+(defn print-status-updates []
+  (let [updates (storage/get-status-updates)]
+    (doseq [update updates]
+      (println "Timestamp:" (:timestamp update))
+      (println "Message:" (:message update))
+      (println "---------------------------------"))))
 
 (defn -main
   "Starting Point for All-At-Once Clone Detection

@@ -1,1 +1,5 @@
 folder_structure.txt
+testing
+test/*
+gen_graphs.py
+fetch_data.sh

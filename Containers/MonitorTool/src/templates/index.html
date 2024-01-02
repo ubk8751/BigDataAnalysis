@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Clone Detector Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
+  </head>
+  <body>
+    <h1>Clone Detector Dashboard</h1>
+    <p>New data is fetched at an interval of {{ sleep_time }} seconds</p>
+    <p>Runtime: {{ g_elapsed_time }}</p>
+    <h2>Latest Output:</h2>
+    <p>Files Count: {{ output['Files Count'] }}</p>
+    <p>Chunks Count: {{ output['Chunks Count'] }}</p>
+    <p>Candidates Count: {{ output['Candidates Count'] }}</p>
+    <p>Clones Count: {{ output['Clones Count'] }}</p>
+    <p>
+      Iteration Average Processing Time: {{ output['Iteration Average Processing Time']|display_time }}
+    </p>
+    <p>
+      Average File Processing Time: {{ output['Average File Processing Time']|display_time }}
+    </p>
+    <p>
+      Average Chunk Processing Time: {{ output['Average Chunk Processing Time']|display_time }}
+    </p>
+    <p>
+      Total Candidate Identification Time: {{ output['Total time of finding candidates']|display_time }}
+    </p>
+    <p>
+      Average Clone Expansion Time: {{ output['Average Clone Expansion Time']|display_time }}
+    </p>
+    <p>Latest Message: {{ output['Latest Message'] }}</p>
+    {% if output['Latest Message'] == "Summary" %}
+    <h2>Stats after completion</h2>
+    <p>Finished after: {{ g_stop_time }}</p>
+    <p>Average clone size: {{ avg_clone_size }}</p>
+    <p>Average number of chunks per file: {{ avg_chunks_per_file }}</p>
+    {% endif %}
+    <h2>Line Charts:</h2>
+
+    <canvas id="fileChart" width="400" height="200"></canvas>
+    <canvas id="chunkChart" width="400" height="200"></canvas>
+    <canvas id="expansionChart" width="400" height="200"></canvas>
+
+    <script type="text/javascript">
+      var dataPoints = {{ data_points|safe }};
+
+      var filesData = dataPoints.filter(function(item) { return item.type === 'Files'; });
+      var chunksData = dataPoints.filter(function(item) { return item.type === 'Chunks'; });
+      var expansionData = dataPoints.filter(function(item) { return item.type === 'Expansions'; });
+
+      function createLineChart(canvasId, data, xAxisLabel, yAxisLabel, title) {
+        var ctx = document.getElementById(canvasId).getContext("2d");
+        var counts = data.map(function(item) { return item.count; });
+        var times = data.map(function(item) { return item.time; });
+
+        var chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: counts,
+            datasets: [
+              {
+                label: "Time/Count",
+                data: times,
+                borderColor: "rgba(75, 192, 192, 1)",
+                borderWidth: 2,
+                fill: false,
+                pointRadius: 0,
+              },
+            ],
+          },
+          options: {
+            scales: {
+              x: [
+                    {
+                      display: true,
+                      scaleLabel: {
+                        display: true,
+                        labelString: xAxisLabel, // Use labelString instead of title
+                     },
+                    },
+              ],
+              y: [
+                    {
+                      display: true,
+                      scaleLabel: {
+                        display: true,
+                        labelString: yAxisLabel, // Use labelString instead of title
+                      },
+                    },
+              ],
+            },
+            plugins: {
+              title: {
+                      display: true,
+                      text: title,
+              },
+            },
+          },
+      });
+    }
+
+      
+      createLineChart("fileChart", filesData, "Elapsed Time", "File Counts", "File Processing Time per Number of Processed Files");
+      createLineChart("chunkChart", chunksData, "Elapsed Time", "Chunk Counts", "Chunk Processing Time per Number of Processed Chunks");
+      createLineChart("expansionChart", expansionData, "Elapsed Time", "Clone Counts", "Candidate Expansion Time per Number of Processed Clones");
+    </script>
+  </body>
+</html>

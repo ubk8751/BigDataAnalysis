@@ -48,18 +48,35 @@
 ;; Aleph-null BoBoTW solution
 ;; ----------------------------------------
 
+;; (defn maybe-expand [dbconnection candidate]
+;;   (loop [overlapping (storage/get-overlapping-candidates dbconnection candidate)
+;;          clone candidate]
+;;     (if (empty? overlapping)
+;;       (do
+;;         ;;(println "Number of Clones" (storage/count-items "clones") "Remaining candidates" (storage/count-items "candidates"))
+;;         (storage/remove-overlapping-candidates! dbconnection (list candidate))
+;;         clone)
+;;       (let [merged-clone (reduce merge-clones clone overlapping)]
+;;         (storage/remove-overlapping-candidates! dbconnection overlapping)
+;;         (recur (storage/get-overlapping-candidates dbconnection merged-clone)
+;;                merged-clone)))))
+
+;; Edited to track xpansion times
 (defn maybe-expand [dbconnection candidate]
-  (loop [overlapping (storage/get-overlapping-candidates dbconnection candidate)
-         clone candidate]
-    (if (empty? overlapping)
-      (do
-;;        (println "Number of Clones" (storage/count-items "clones") "Remaining candidates" (storage/count-items "candidates"))
-        (storage/remove-overlapping-candidates! dbconnection (list candidate))
-        clone)
-      (let [merged-clone (reduce merge-clones clone overlapping)]
-        (storage/remove-overlapping-candidates! dbconnection overlapping)
-        (recur (storage/get-overlapping-candidates dbconnection merged-clone)
-               merged-clone)))))
+  (let [start-time (System/currentTimeMillis)] ; sets a start value to track expansion times
+    (loop [overlapping (storage/get-overlapping-candidates dbconnection candidate)
+           clone candidate]
+      (if (empty? overlapping)
+        (do
+          (storage/remove-overlapping-candidates! dbconnection (list candidate))
+          (let [end-time (System/currentTimeMillis)] ; sets end value for expansion time
+            ;; Calcualte total expansion time in ms and add to db
+            (storage/store-expansion-times! dbconnection (- end-time start-time)))
+          clone)
+        (let [merged-clone (reduce merge-clones clone overlapping)]
+          (storage/remove-overlapping-candidates! dbconnection overlapping)
+          (recur (storage/get-overlapping-candidates dbconnection merged-clone)
+                 merged-clone))))))
 
 (defn expand-clones []
   (let [dbconnection (storage/get-dbconnection)]
