@@ -67,15 +67,17 @@
                     {$match {:numberOfInstances {$gt 1}}}
                     {"$out" "candidates"} ])))
 
+;; Added to track the number of added clones during expansion
 (defn get-next-clone-id []
   (swap! clone-id-atom inc))
 
+
+;; Added to track expansion times
 (defn store-expansion-times! [conn expansion-time]
   (let [db (mg/get-db conn dbname)
         collname "expansion_times"
         expansion-time-record {:expansion_time expansion-time
                               :clone_id (get-next-clone-id)}]
-    ;; Insert the expansion time record into the collection
     (mc/insert db collname expansion-time-record)))
 
 (defn consolidate-clones-and-source []
